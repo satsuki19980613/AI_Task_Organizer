@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Task Organizer</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <!-- iOS ホーム画面追加サポート -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="タスク">
+  <meta name="theme-color" content="#4A7FA5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="offline-banner hidden" id="offline-banner" role="status">
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+    <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+    <path d="M6.5 3.5V7M6.5 9.5V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  オフライン中 ― タスクの変更はオンライン復帰後に自動同期されます
+</div>
+
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-left">
+      <span class="app-name">Task Organizer</span>
+    </div>
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" data-tab="chat" role="tab">チャット</button>
+      <button class="tab-btn" data-tab="tasks" role="tab">タスク</button>
+      <button class="tab-btn" data-tab="schedule" role="tab">スケジュール</button>
+      <button class="tab-btn" data-tab="report" role="tab">レポート</button>
+      <button class="tab-btn" data-tab="archive" role="tab">アーカイブ</button>
+      <button class="tab-btn" data-tab="memo" role="tab">メモ</button>
+    </nav>
+    <div class="header-right"></div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- Chat Panel -->
+    <div class="tab-panel active" id="panel-chat">
+      <div class="chat-outer-layout">
+
+        <!-- Milestone sidebar (hidden until task type is selected) -->
+        <aside class="chat-milestone-panel hidden" id="chat-milestone-panel">
+          <div class="milestone-header">進行状況</div>
+          <ol class="milestone-steps" id="milestone-steps"></ol>
+          <div class="milestone-current-info-wrap">
+            <span class="milestone-current-info" id="milestone-current-info"></span>
+          </div>
+          <div class="milestone-offtrack hidden" id="milestone-offtrack">
+            <div class="offtrack-badge">
+              <span class="offtrack-dot"></span>
+              <span>脱線中</span>
+            </div>
+            <div class="offtrack-hint" id="offtrack-hint-text"></div>
+          </div>
+        </aside>
+
+        <!-- Chat area -->
+        <div class="chat-layout">
+
+          <!-- Mode toggle -->
+          <div class="chat-mode-bar">
+            <div class="chat-mode-toggle">
+              <button class="mode-btn active" data-mode="task">タスク整理</button>
+              <button class="mode-btn" data-mode="dump">頭の整理</button>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-welcome">
+              <div class="welcome-mark">✦</div>
+              <h3 class="welcome-title">タスク整理アシスタント</h3>
+              <p class="welcome-desc">まず、どちらを作成しますか？</p>
+              <div class="task-type-buttons">
+                <button class="btn-task-type" data-type="task">
+                  <span class="task-type-icon">🎯</span>
+                  <span class="task-type-name">単発タスク</span>
+                  <span class="task-type-desc">短期・単発の作業</span>
+                </button>
+                <button class="btn-task-type" data-type="project">
+                  <span class="task-type-icon">🗓️</span>
+                  <span class="task-type-name">プロジェクト</span>
+                  <span class="task-type-desc">中長期の目標</span>
+                </button>
+                <button class="btn-task-type" data-type="habit">
+                  <span class="task-type-icon">🔁</span>
+                  <span class="task-type-name">習慣</span>
+                  <span class="task-type-desc">毎日・毎週の繰り返し</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Typing indicator -->
+          <div class="typing-indicator hidden" id="typing-indicator">
+            <div class="typing-bubble">
+              <span class="typing-mark">✦</span>
+              <div class="typing-dots">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="chat-input-area">
+            <div class="chat-input-wrap">
+              <textarea
+                id="chat-input"
+                class="chat-textarea"
+                placeholder=""
+                rows="1"
+              ></textarea>
+              <button class="btn-send" id="chat-send" title="送信 (Enter)">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M2 9L16 9M16 9L10 3M16 9L10 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="chat-hint">
+              <span>Ctrl + Enter で送信 &nbsp;·&nbsp; Enter で改行</span>
+              <button class="btn-chat-save hidden" id="chat-save" title="この会話を要約して保存">保存</button>
+              <button class="btn-chat-reset" id="chat-reset" title="会話をリセット">会話をリセット</button>
+            </div>
+          </div>
+
+        </div><!-- /chat-layout -->
+      </div><!-- /chat-outer-layout -->
+    </div>
+
+    <!-- Tasks Panel -->
+    <div class="tab-panel" id="panel-tasks">
+      <div class="tasks-layout">
+
+        <!-- Matrix area (left 60%) -->
+        <div class="matrix-wrap" id="matrix-wrap">
+
+          <!-- Sub-tab bar -->
+          <div class="tasks-subtab-bar">
+            <div class="tasks-subtabs">
+              <button class="tasks-subtab active" data-tasks-view="matrix">マトリクス</button>
+              <button class="tasks-subtab" data-tasks-view="today">今日のタスク</button>
+              <button class="tasks-subtab" data-tasks-view="project">プロジェクト</button>
+              <button class="tasks-subtab" data-tasks-view="habit">習慣</button>
+            </div>
+            <div class="matrix-toolbar">
+              <span class="task-count" id="task-count"></span>
+              <button class="btn-primary" id="btn-add-task">＋ タスクを追加</button>
+            </div>
+          </div>
+
+          <!-- ── Matrix view ── -->
+          <div id="tasks-view-matrix">
+            <!-- Drill-down back button -->
+            <div class="matrix-drilldown-bar hidden" id="matrix-drilldown-bar">
+              <button class="btn-icon btn-matrix-back" id="btn-matrix-back">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span class="drilldown-label" id="drilldown-label"></span>
+            </div>
+
+            <!-- 2×2 Matrix: left=急がない, right=緊急 -->
+            <div class="matrix-grid" id="matrix-grid">
+              <!-- Top-left: Q2 重要 × 急がない -->
+              <div class="quadrant" id="quadrant-q2" data-q="q2">
+                <div class="quadrant-header" id="qh-q2">
+                  <div class="qh-left">
+                    <span class="q-label">重要 × 急がない</span>
+                  </div>
+                  <div class="qh-right">
+                    <span class="q-count" id="qcount-q2">0</span>
+                    <button class="btn-q-expand" title="フォーカス">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1h4M1 1v4M11 1h-4M11 1v4M1 11h4M1 11v-4M11 11h-4M11 11v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="quadrant-cards" id="cards-q2"></div>
+              </div>
+
+              <!-- Top-right: Q1 重要 × 緊急 -->
+              <div class="quadrant" id="quadrant-q1" data-q="q1">
+                <div class="quadrant-header" id="qh-q1">
+                  <div class="qh-left">
+                    <span class="q-label">重要 × 緊急</span>
+                  </div>
+                  <div class="qh-right">
+                    <span class="q-count" id="qcount-q1">0</span>
+                    <button class="btn-q-expand" title="フォーカス">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1h4M1 1v4M11 1h-4M11 1v4M1 11h4M1 11v-4M11 11h-4M11 11v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="quadrant-cards" id="cards-q1"></div>
+              </div>
+
+              <!-- Bottom-left: Q4 重要でない × 急がない -->
+              <div class="quadrant" id="quadrant-q4" data-q="q4">
+                <div class="quadrant-header" id="qh-q4">
+                  <div class="qh-left">
+                    <span class="q-label">重要でない × 急がない</span>
+                  </div>
+                  <div class="qh-right">
+                    <span class="q-count" id="qcount-q4">0</span>
+                    <button class="btn-q-expand" title="フォーカス">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1h4M1 1v4M11 1h-4M11 1v4M1 11h4M1 11v-4M11 11h-4M11 11v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="quadrant-cards" id="cards-q4"></div>
+              </div>
+
+              <!-- Bottom-right: Q3 重要でない × 緊急 -->
+              <div class="quadrant" id="quadrant-q3" data-q="q3">
+                <div class="quadrant-header" id="qh-q3">
+                  <div class="qh-left">
+                    <span class="q-label">重要でない × 緊急</span>
+                  </div>
+                  <div class="qh-right">
+                    <span class="q-count" id="qcount-q3">0</span>
+                    <button class="btn-q-expand" title="フォーカス">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1h4M1 1v4M11 1h-4M11 1v4M1 11h4M1 11v-4M11 11h-4M11 11v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="quadrant-cards" id="cards-q3"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Today view ── -->
+          <div id="tasks-view-today" class="hidden">
+            <div class="today-content" id="today-content"></div>
+          </div>
+
+          <!-- ── Habit view ── -->
+          <div id="tasks-view-habit" class="hidden">
+            <div class="habit-list" id="habit-list"></div>
+          </div>
+
+          <!-- ── Project view ── -->
+          <div id="tasks-view-project" class="hidden">
+            <div class="project-list" id="project-list">
+              <div class="project-empty" id="project-empty">
+                <div class="project-empty-icon">◎</div>
+                <p>プロジェクトがありません</p>
+                <p class="project-empty-hint">チャットで「〜ヶ月で〜したい」と話しかけると<br>AIが一緒に計画を立ててくれます</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Detail panel (right 40%) -->
+        <aside class="detail-panel" id="detail-panel">
+          <div class="detail-panel-inner">
+            <div class="detail-panel-top">
+              <button class="btn-icon detail-panel-close" id="detail-panel-close" title="閉じる">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="detail-panel-body" id="detail-panel-body">
+              <div class="detail-empty">
+                <div class="detail-empty-icon">←</div>
+                <p>タスクを選択してください</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </div>
+
+    <!-- Schedule Panel -->
+    <div class="tab-panel" id="panel-schedule">
+      <div class="schedule-layout">
+
+        <div class="schedule-toolbar">
+          <div class="view-toggle">
+            <button class="view-btn active" data-view="list">リスト</button>
+            <button class="view-btn" data-view="month">月</button>
+            <button class="view-btn" data-view="week">週</button>
+          </div>
+          <div class="schedule-nav hidden" id="schedule-nav">
+            <button class="schedule-nav-btn" id="schedule-nav-prev">‹</button>
+            <span class="schedule-nav-label" id="schedule-nav-label"></span>
+            <button class="schedule-nav-btn" id="schedule-nav-next">›</button>
+          </div>
+        </div>
+
+        <div class="schedule-content" id="schedule-content"></div>
+
+      </div>
+    </div>
+
+    <!-- Report Panel -->
+    <div class="tab-panel" id="panel-report">
+      <div class="report-layout">
+
+        <div class="report-toolbar">
+          <span class="report-ts" id="report-ts"></span>
+          <div class="report-toolbar-actions">
+            <button class="btn-primary" id="btn-run-report">更新</button>
+            <button class="btn-primary" id="btn-ai-report">AI分析</button>
+          </div>
+        </div>
+
+        <div class="report-body" id="report-body">
+          <div class="report-empty-state">「更新」ボタンを押して分析を開始してください</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Archive Panel -->
+    <div class="tab-panel" id="panel-archive">
+      <div class="archive-layout">
+
+        <div class="archive-toolbar">
+          <div class="archive-search-wrap">
+            <svg class="archive-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <input class="archive-search-input" id="archive-search" type="text" placeholder="タスクを検索..." autocomplete="off">
+          </div>
+          <div class="archive-filters">
+            <select class="filter-select" id="filter-category">
+              <option value="">すべてのカテゴリー</option>
+              <option value="work">仕事</option>
+              <option value="health">健康</option>
+              <option value="life">生活</option>
+              <option value="learning">学習</option>
+              <option value="social">人間関係</option>
+              <option value="admin">手続き</option>
+            </select>
+            <select class="filter-select" id="filter-sort">
+              <option value="newest">新しい順</option>
+              <option value="oldest">古い順</option>
+              <option value="title">タイトル順</option>
+              <option value="priority">優先度順</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="archive-list-wrap" id="archive-list-wrap">
+          <div class="archive-header-row">
+            <span class="archive-count" id="archive-count"></span>
+          </div>
+          <div class="archive-grid" id="archive-grid">
+            <div class="archive-empty" id="archive-empty">アーカイブされたタスクはありません</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+<!-- ── Add Task Modal ── -->
+<div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 class="modal-title">新しいタスク</h3>
+    <div class="field">
+      <label class="field-label" for="input-task-title">タイトル</label>
+      <input class="field-input" id="input-task-title" type="text" placeholder="タスクの名前を入力してください" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="field-label">重要度</label>
+      <div class="matrix-select">
+        <label class="matrix-option">
+          <input type="radio" name="new-importance" value="high" checked>
+          <span class="matrix-label imp-high">重要</span>
+        </label>
+        <label class="matrix-option">
+          <input type="radio" name="new-importance" value="low">
+          <span class="matrix-label imp-low">重要でない</span>
+        </label>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">緊急度</label>
+      <div class="matrix-select">
+        <label class="matrix-option">
+          <input type="radio" name="new-urgency" value="high" checked>
+          <span class="matrix-label urg-high">緊急</span>
+        </label>
+        <label class="matrix-option">
+          <input type="radio" name="new-urgency" value="low">
+          <span class="matrix-label urg-low">急がない</span>
+        </label>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">カテゴリー</label>
+      <select class="field-input" id="input-task-category">
+        <option value="work">仕事</option>
+        <option value="health">健康</option>
+        <option value="life" selected>生活</option>
+        <option value="learning">学習</option>
+        <option value="social">人間関係</option>
+        <option value="admin">手続き</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label" for="input-task-deadline">期限（任意）</label>
+      <input class="field-input" id="input-task-deadline" type="date">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="btn-modal-cancel">キャンセル</button>
+      <button class="btn-primary" id="btn-modal-save">追加する</button>
+    </div>
+  </div>
+</div>
+
+    <!-- Memo Panel -->
+    <div class="tab-panel" id="panel-memo">
+      <div class="memo-layout">
+        <div class="memo-toolbar">
+          <div class="view-toggle">
+            <button class="view-btn memo-view-btn active" data-view="tree">ツリー</button>
+            <button class="view-btn memo-view-btn" data-view="calendar">カレンダー</button>
+          </div>
+          <div class="memo-cal-nav hidden" id="memo-cal-nav">
+            <button class="schedule-nav-btn" id="memo-nav-prev">‹</button>
+            <span class="schedule-nav-label" id="memo-nav-label"></span>
+            <button class="schedule-nav-btn" id="memo-nav-next">›</button>
+          </div>
+        </div>
+        <div class="memo-tree-wrap" id="memo-tree-wrap">
+          <div class="memo-empty" id="memo-empty">保存されたメモはありません<br><span class="memo-empty-hint">「頭の整理」モードで会話し、「保存」ボタンで記録できます</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/main.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
