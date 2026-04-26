@@ -169,7 +169,7 @@ function _loadChats() {
 /* ═══════════════════════════════════════════════════════════
    Utilities
 ═══════════════════════════════════════════════════════════ */
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() { return dateStr(new Date()); }
 function dateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -264,7 +264,8 @@ async function toggleHabitDone(habitId, done) {
   const h = allHabits.find(x => x.id === habitId);
   if (h) {
     h.today_done = done;
-    if (h.week_done) h.week_done[todayStr()] = done;
+    if (!h.week_done) h.week_done = {};
+    h.week_done[todayStr()] = done;
     // サーバーから正確なストリークを取得（+1/-1の楽観的更新は連続日数を誤る）
     const stats = await apiFetch(`/api/habits/${habitId}/stats`);
     h.current_streak = stats.current_streak;
@@ -510,7 +511,7 @@ function getWeekDays() {
   return labels.map((label, i) => {
     const d   = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = dateStr(d);
     return { iso, label, isToday: iso === todayIso, isFuture: iso > todayIso };
   });
 }
@@ -2812,17 +2813,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const habit   = allHabits.find(h => h.id === habitId);
     if (!habit) return;
     const newDone = !habit.today_done;
-    await apiFetch(`/api/habits/${habitId}/log`, {
-      method: 'POST',
-      body: JSON.stringify({ date: dateStr, done: newDone }),
-    });
+    // 楽観的更新：APIより先に描画してUIを即座に反映
     habit.today_done = newDone;
     habit.week_done  = { ...habit.week_done, [dateStr]: newDone };
-    const stats = await apiFetch(`/api/habits/${habitId}/stats`);
-    habit.current_streak = stats.current_streak;
     renderHabitView();
     renderMatrix();
     renderTodayView();
+    try {
+      await apiFetch(`/api/habits/${habitId}/log`, {
+        method: 'POST',
+        body: JSON.stringify({ date: dateStr, done: newDone }),
+      });
+      const stats = await apiFetch(`/api/habits/${habitId}/stats`);
+      habit.current_streak = stats.current_streak;
+      renderHabitView();
+    } catch {
+      // サーバーエラー時は状態を元に戻す
+      habit.today_done = !newDone;
+      habit.week_done  = { ...habit.week_done, [dateStr]: !newDone };
+      renderHabitView();
+      renderMatrix();
+      renderTodayView();
+    }
   });
 
   // パレット外クリックで閉じる
