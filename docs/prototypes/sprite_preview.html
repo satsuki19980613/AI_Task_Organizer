@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>気持ち族 ドット絵プレビュー（勇気）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", sans-serif;
+    background: linear-gradient(180deg, #fff8e7 0%, #ffe4c4 100%);
+    color: #3d2817;
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+  h1 { margin: 0 0 8px; font-size: 22px; }
+  .subtitle { color: #7a5a3a; margin-bottom: 24px; font-size: 14px; }
+  .controls { margin: 16px 0 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+  button {
+    background: #ff7f50; color: #fff; border: none;
+    padding: 10px 20px; border-radius: 999px; cursor: pointer;
+    font-weight: bold; font-size: 14px;
+  }
+  button:hover { background: #e6694a; }
+  button.secondary { background: #6c8ebf; }
+  button.secondary:hover { background: #5a7aa8; }
+
+  .stage-row {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+    max-width: 900px;
+  }
+  .stage-card {
+    background: #fff;
+    border: 2px solid #d4a373;
+    border-radius: 16px;
+    padding: 16px 8px 12px;
+    text-align: center;
+    box-shadow: 0 4px 0 #d4a373;
+  }
+  .stage-card.active {
+    background: #fff3d9;
+    border-color: #ff7f50;
+    box-shadow: 0 4px 0 #ff7f50, 0 0 0 4px rgba(255,127,80,0.2);
+  }
+  .stage-name { font-size: 12px; color: #7a5a3a; margin-top: 8px; }
+  .stage-thresh { font-size: 11px; color: #b08968; }
+
+  .sprite {
+    width: 96px; height: 96px;
+    margin: 0 auto;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    animation: idle-bob 1.6s ease-in-out infinite;
+  }
+  @keyframes idle-bob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-4px); }
+  }
+  .sprite.evolving {
+    animation: evolve-jump 0.9s ease-out;
+  }
+  @keyframes evolve-jump {
+    0%   { transform: translateY(0)    scale(1);   filter: brightness(1); }
+    20%  { transform: translateY(-20px) scale(1.1); filter: brightness(1.5); }
+    40%  { transform: translateY(0)    scale(0.9); filter: brightness(2) drop-shadow(0 0 10px #fff); }
+    60%  { transform: translateY(-12px) scale(1.05); filter: brightness(1.5); }
+    100% { transform: translateY(0)    scale(1);   filter: brightness(1); }
+  }
+  .sprite.devolving {
+    animation: devolve-shrink 0.9s ease-out;
+  }
+  @keyframes devolve-shrink {
+    0%   { transform: translateY(0) scale(1) rotate(0); filter: brightness(1); }
+    30%  { transform: translateY(0) scale(0.85) rotate(-3deg); filter: brightness(0.7) saturate(0.5); }
+    60%  { transform: translateY(0) scale(0.9)  rotate(3deg);  filter: brightness(0.7) saturate(0.5); }
+    100% { transform: translateY(0) scale(1)   rotate(0); filter: brightness(1); }
+  }
+
+  .focus-display {
+    margin-top: 32px;
+    background: #fff;
+    border: 2px solid #d4a373;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 900px;
+    text-align: center;
+  }
+  .focus-name { font-size: 18px; font-weight: bold; margin-top: 12px; }
+  .focus-thresh { font-size: 13px; color: #7a5a3a; }
+  .narration { color: #7a5a3a; margin: 12px 0; font-size: 13px; max-width: 600px; margin: 12px auto; }
+
+  /* ====== 生活ハビタット ====== */
+  .habitat {
+    position: relative;
+    width: 480px; height: 240px;
+    margin: 0 auto;
+    background:
+      linear-gradient(180deg, #fff5e0 0%, #ffe8c4 60%, #f4d8a8 60%, #e8c794 100%);
+    border: 2px solid #d4a373;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .habitat::before {
+    /* 床ライン */
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 60%;
+    height: 2px;
+    background: #b08968;
+  }
+  .habitat .room-prop {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .habitat .room-prop.window  { left: 30px;  top: 18px; }
+  .habitat .room-prop.rug     { left: 200px; bottom: 28px; }
+  .habitat .room-prop.plant   { right: 28px; top: 60px; }
+
+  .character {
+    position: absolute;
+    left: 200px;
+    bottom: 30px;
+    width: 96px; height: 96px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    transform-origin: 50% 100%;
+    transition: left 1.6s linear, transform 0.3s;
+  }
+  .character.idle    { animation: c-idle 1.6s ease-in-out infinite; }
+  .character.walk    { animation: c-walk 0.45s steps(2) infinite; }
+  .character.tea     { animation: c-tea  1.4s ease-in-out infinite; }
+  .character.sleep   { animation: c-sleep 3s ease-in-out infinite; }
+  .character.happy   { animation: c-happy 0.5s ease-out infinite; }
+  .character.think   { animation: c-think 2s ease-in-out infinite; }
+  .character.flip    { transform: scaleX(-1); }
+  .character.flip.walk    { animation: c-walk-flip 0.45s steps(2) infinite; }
+
+  @keyframes c-idle  {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-3px); }
+  }
+  @keyframes c-walk  {
+    0%   { transform: translateY(0)    rotate(-1deg); }
+    50%  { transform: translateY(-3px) rotate(1deg);  }
+    100% { transform: translateY(0)    rotate(-1deg); }
+  }
+  @keyframes c-walk-flip  {
+    0%   { transform: scaleX(-1) translateY(0)    rotate(1deg); }
+    50%  { transform: scaleX(-1) translateY(-3px) rotate(-1deg);  }
+    100% { transform: scaleX(-1) translateY(0)    rotate(1deg); }
+  }
+  @keyframes c-tea   {
+    0%, 70%, 100% { transform: translateY(0); }
+    80%, 90%      { transform: translateY(-1px) rotate(-2deg); }
+  }
+  @keyframes c-sleep {
+    0%, 100% { transform: translateY(0)    rotate(0); }
+    50%      { transform: translateY(-1px) rotate(2deg); }
+  }
+  @keyframes c-happy {
+    0%, 100% { transform: translateY(0)   scale(1);   }
+    50%      { transform: translateY(-12px) scale(1.05); }
+  }
+  @keyframes c-think {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-2px); }
+  }
+
+  /* ====== プロップ（持ち物・装飾） ====== */
+  .prop-overlay {
+    position: absolute;
+    pointer-events: none;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    transition: opacity 0.3s;
+  }
+  .prop-overlay.hidden { opacity: 0; }
+  .prop-overlay.zzz {
+    animation: zzz-float 2.5s ease-out infinite;
+  }
+  @keyframes zzz-float {
+    0%   { transform: translate(0, 0)    scale(0.6); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(20px, -50px) scale(1.1); opacity: 0; }
+  }
+  .prop-overlay.bubble {
+    animation: bubble-pop 2s ease-in-out infinite;
+  }
+  @keyframes bubble-pop {
+    0%, 100% { transform: scale(0.9); opacity: 0.7; }
+    50%      { transform: scale(1.05); opacity: 1; }
+  }
+  .prop-overlay.sparkle {
+    animation: sparkle 0.8s ease-in-out infinite;
+  }
+  @keyframes sparkle {
+    0%, 100% { transform: scale(0.7) rotate(0); opacity: 0.5; }
+    50%      { transform: scale(1.2) rotate(45deg); opacity: 1; }
+  }
+
+  .action-label {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #7a5a3a;
+    min-height: 18px;
+  }
+  .action-controls { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .action-controls button { padding: 6px 14px; font-size: 12px; background: #6c8ebf; }
+  .action-controls button:hover { background: #5a7aa8; }
+  .action-controls button.active { background: #ff7f50; }
+</style>
+</head>
+<body>
+
+<h1>気持ち族「勇気」 — ドット絵スプライト試作</h1>
+<div class="subtitle">5段階の進化＋アイドル動作＋進化／退化演出</div>
+
+<div class="stage-row" id="stageRow"></div>
+
+<div class="focus-display">
+  <div class="habitat" id="habitat">
+    <div class="room-prop window" id="propWindow"></div>
+    <div class="room-prop rug"    id="propRug"></div>
+    <div class="room-prop plant"  id="propPlant"></div>
+    <div class="character idle" id="character"></div>
+    <div class="prop-overlay hidden" id="overlayCup"></div>
+    <div class="prop-overlay hidden" id="overlayZzz"></div>
+    <div class="prop-overlay hidden" id="overlayBubble"></div>
+    <div class="prop-overlay hidden" id="overlaySparkle"></div>
+    <div class="prop-overlay hidden" id="overlayFood"></div>
+  </div>
+  <div class="focus-name" id="focusName">たまご</div>
+  <div class="focus-thresh" id="focusThresh">streak 0〜2日</div>
+  <div class="action-label" id="actionLabel">ぼーっとしている…</div>
+  <div class="narration" id="narration">習慣を始めたばかりの状態。何になるかな？</div>
+  <div class="controls" style="justify-content:center">
+    <button onclick="evolve()">▶ 進化を見る</button>
+    <button class="secondary" onclick="devolve()">◀ 退化を見る</button>
+    <button class="secondary" onclick="setStage(0)">↻ リセット</button>
+  </div>
+  <div class="action-controls">
+    <button onclick="forceAction('idle')">ぼーっとする</button>
+    <button onclick="forceAction('walk')">お散歩</button>
+    <button onclick="forceAction('tea')">お茶を飲む</button>
+    <button onclick="forceAction('eat')">ごはん</button>
+    <button onclick="forceAction('sleep')">おひるね</button>
+    <button onclick="forceAction('think')">考えごと</button>
+    <button onclick="forceAction('happy')">よろこぶ</button>
+    <button onclick="toggleAuto()" id="btnAuto">⏸ 自動行動</button>
+  </div>
+</div>
+
+<script>
+// ========= ドット絵データ（勇気系統 / 16x16） =========
+// . : 透明  o : 輪郭(#3d2817)  c : クリーム(#fff5e0)
+// r : 赤(#e74c3c)  R : 濃赤(#c0392b)  O : オレンジ(#ff9f40)
+// y : 黄(#ffd93d)  k : 黒(#000)  w : 白(#fff)  s : 影(#d4a373)
+
+const PALETTE = {
+  '.': null,
+  'o': '#3d2817',
+  'c': '#fff5e0',
+  'r': '#e74c3c',
+  'R': '#c0392b',
+  'O': '#ff9f40',
+  'y': '#ffd93d',
+  'k': '#1a0f0a',
+  'w': '#ffffff',
+  's': '#d4a373',
+};
+
+// ====== フレーム派生ヘルパー ======
+// base sprite に小さなピクセル変更を適用して別フレームを生成する。
+// changes: [[row, col, char], ...] の配列
+function frame(base, changes) {
+  return base.map((row, y) => {
+    const cs = changes.filter(c => c[0] === y);
+    if (!cs.length) return row;
+    const arr = row.split('');
+    cs.forEach(([_, x, ch]) => arr[x] = ch);
+    return arr.join('');
+  });
+}
+
+// ============= たまご =============
+const EGG_A = [
+  "................",
+  "................",
+  ".......oooo.....",
+  "......occcco....",
+  ".....occcccco...",
+  "....occcccccco..",
+  "....occcrcccco..",
+  "...occccrrccccoo",
+  "...occcrrrrccco.",
+  "...occccrcccccoO",
+  "...occccccccccoO",
+  "...occccccccccoO",
+  "....occccccccco.",
+  "....occccccccco.",
+  ".....oooooooo...",
+  "................",
+];
+// 炎が揺らぐフレーム
+const EGG_B = frame(EGG_A, [
+  [6, 7, 'r'], [6, 8, 'r'],
+  [7, 7, 'r'], [7, 8, 'R'], [7, 9, 'r'],
+  [8, 6, '.'], [8, 7, 'c'], [8, 8, 'r'], [8, 9, 'c'], [8, 10, '.'],
+  [9, 7, 'c'], [9, 8, 'c'], [9, 9, 'c'],
+]);
+// よろこぶ：殻にひびと光
+const EGG_HAPPY_A = frame(EGG_A, [
+  [5, 7, 'O'], [5, 9, 'O'],
+  [9, 6, 'O'], [11, 9, 'O'],
+]);
+const EGG_HAPPY_B = frame(EGG_A, [
+  [4, 6, 'y'], [4, 10, 'y'],
+  [12, 6, 'y'], [12, 11, 'y'],
+]);
+
+// ============= ひな（殻が割れて顔が出てる） =============
+const HINA_A = [
+  "................",
+  "....o....o.o....",
+  "....oo..oo.oo...",
+  "...oOoo.oOo.....",
+  "...oOOOooOOOo...",
+  "..oOOyyOyOyOOo..",
+  "..oOykOyykkOOo..",
+  ".oOOOyyyyyyOOOo.",
+  ".oOOOOOOOOOOOOo.",
+  ".occcccccccccco.",
+  ".occcccccccccco.",
+  "..occccccccccc..",
+  "..oocccccccccoo.",
+  "...oocccccccoo..",
+  "....oooooooo....",
+  "................",
+];
+// まばたき
+const HINA_B = frame(HINA_A, [
+  [6, 4, 'O'], [6, 9, 'O'], [6, 10, 'O'],
+]);
+// ぴょんと跳ねる（足が見える）
+const HINA_WALK_A = frame(HINA_A, [
+  [14, 4, '.'], [14, 11, '.'],
+  [15, 5, 'o'], [15, 6, 'O'], [15, 9, 'O'], [15, 10, 'o'],
+]);
+const HINA_WALK_B = frame(HINA_A, [
+  [13, 3, '.'], [13, 12, '.'],
+  [14, 4, '.'], [14, 11, '.'],
+  [15, 6, 'o'], [15, 9, 'o'],
+]);
+const HINA_HAPPY_A = frame(HINA_A, [
+  // 翼を広げる左右
+  [9, 0, 'o'], [9, 15, 'o'],
+  [10, 0, 'o'], [10, 1, 'O'], [10, 14, 'O'], [10, 15, 'o'],
+]);
+const HINA_HAPPY_B = frame(HINA_A, [
+  [8, 0, 'o'], [8, 15, 'o'],
+  [9, 0, 'O'], [9, 15, 'O'],
+]);
+const HINA_SLEEP_A = frame(HINA_A, [
+  [6, 4, 'O'], [6, 9, 'O'], [6, 10, 'O'],
+  [6, 5, 'o'], [6, 11, 'o'],
+]);
+
+// ============= こども（直立した小さな勇者） =============
+const CHILD_A = [
+  "................",
+  ".......oo.......",
+  "......orro......",
+  ".....orRRro.....",
+  "....oOOyyOOo....",
+  "....oOykkyOo....",
+  "....oOyywyOo....",
+  ".....oOyyyOo....",
+  "....oOOOOOOOo...",
+  "...oOrOOOOrOo...",
+  "...oOrOOOOrOo...",
+  "....ooOOOOoo....",
+  "....oOOooOOo....",
+  "....oOOooOOo....",
+  ".....oo..oo.....",
+  "................",
+];
+// 呼吸（瞬き＋微妙な肩の動き）
+const CHILD_B = frame(CHILD_A, [
+  [5, 6, 'O'], [5, 9, 'O'],   // まばたき
+  [8, 3, '.'], [8, 12, '.'],  // 肩を内に
+]);
+// 歩く：足が前後にひらく
+const CHILD_WALK_A = frame(CHILD_A, [
+  [12, 7, '.'], [12, 8, '.'],
+  [13, 4, '.'], [13, 11, '.'],
+  [14, 5, '.'], [14, 6, 'o'], [14, 9, 'o'], [14, 10, '.'],
+]);
+const CHILD_WALK_B = frame(CHILD_A, [
+  [13, 4, '.'], [13, 5, 'o'], [13, 11, '.'], [13, 10, 'o'],
+  [14, 5, '.'], [14, 6, 'o'], [14, 7, 'o'], [14, 8, 'o'], [14, 9, 'o'], [14, 10, '.'],
+]);
+// お茶：腕を上げる→口元へ
+const CHILD_TEA_A = frame(CHILD_A, [
+  [9, 12, 'O'], [9, 13, 'O'],
+  [10, 12, 'O'], [10, 13, 'O'],
+]);
+const CHILD_TEA_B = frame(CHILD_A, [
+  [4, 12, 'O'], [4, 13, 'O'],
+  [5, 11, 'O'], [5, 12, 'O'], [5, 13, 'O'],
+  [6, 11, 'O'], [6, 12, 'O'],
+  [9, 11, '.'], [9, 12, '.'],
+  [10, 11, '.'], [10, 12, '.'],
+]);
+// ごはん：両手を前に
+const CHILD_EAT_A = frame(CHILD_A, [
+  [9, 11, 'O'], [9, 12, 'O'],
+  [10, 11, 'O'], [10, 12, 'O'],
+  [9, 3, 'O'], [9, 4, 'O'],
+  [10, 3, 'O'], [10, 4, 'O'],
+]);
+const CHILD_EAT_B = frame(CHILD_A, [
+  [6, 5, 'O'], [6, 6, 'O'],   // 口に運ぶ
+  [9, 11, 'O'], [9, 12, 'O'],
+  [10, 11, 'O'], [10, 12, 'O'],
+]);
+// おひるね：座って目を閉じる
+const CHILD_SLEEP_A = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "......oo........",
+  ".....orro.......",
+  ".....orRRro.....",
+  "....oOOOOOOo....",
+  "...oOykkyOOOo...",
+  "...oOykkyOOOo...",
+  "...oOOOOOOOOo...",
+  "..oOrOOOOOOrOo..",
+  "..oOOOOOOOOOOo..",
+  "..ooooooooooooo.",
+  "...oOOoooooOOo..",
+  "....ooo..ooo....",
+];
+const CHILD_SLEEP_B = frame(CHILD_SLEEP_A, [
+  [11, 3, '.'], [11, 12, '.'],
+  [12, 2, '.'], [12, 13, '.'],
+]);
+// よろこぶ：着地→ジャンプ
+const CHILD_HAPPY_A = frame(CHILD_A, [
+  // 手を広げる
+  [9, 1, 'o'], [9, 2, 'O'], [9, 3, 'O'],
+  [9, 12, 'O'], [9, 13, 'O'], [9, 14, 'o'],
+]);
+const CHILD_HAPPY_B = [
+  ".......oo.......",
+  "......orro......",
+  ".....orRRro.....",
+  "....oOOyyOOo....",
+  "....oOyOOyOo....",  // 目がキラキラ
+  "....oOyywyOo....",
+  ".....oOyyyOo....",
+  "..ooOOOOOOOOOoo.",  // 手を真上に
+  "..oOoOOOOOOoOOo.",
+  "...oOrOOOOrOo...",
+  "...oOrOOOOrOo...",
+  "....ooOOOOoo....",
+  "....oOOooOOo....",
+  ".....oo..oo.....",
+  "................",
+  "................",
+];
+// 考えごと
+const CHILD_THINK_A = frame(CHILD_A, [
+  [5, 6, 'O'], [5, 9, 'O'],
+]);
+const CHILD_THINK_B = frame(CHILD_A, [
+  [3, 5, 'r'], [3, 11, '.'],   // 頭をかしげる
+  [3, 4, '.'], [3, 12, '.'],
+]);
+
+// ============= せいねん（マントを纏った勇者） =============
+const YOUTH_A = [
+  "................",
+  "......oroo......",
+  ".....orRRro.....",
+  "....orRRRRRo....",
+  "...oOOyyyyOOo...",
+  "...oOykkkkyOo...",
+  "...oOyywwykOo...",
+  "...oOyyyyyyOo...",
+  "..oRoOOOOOOoRo..",
+  ".oRRoOOOOOOoRRo.",
+  ".oRRoORrrROoRRo.",
+  ".oRRoORrrROoRRo.",
+  ".oRRoOOOOOOoRRo.",
+  "..ooooOOOOoooo..",
+  "....oOOooOOo....",
+  "....ooo..ooo....",
+];
+const YOUTH_B = frame(YOUTH_A, [
+  [5, 5, 'O'], [5, 6, 'O'], [5, 9, 'O'], [5, 10, 'O'],   // 瞬き
+  [9, 1, '.'], [9, 14, '.'],   // マントが揺れる
+]);
+const YOUTH_WALK_A = frame(YOUTH_A, [
+  [14, 7, '.'], [14, 8, '.'],
+  [15, 4, '.'], [15, 5, 'o'], [15, 6, 'o'], [15, 9, 'o'], [15, 10, 'o'], [15, 11, '.'],
+]);
+const YOUTH_WALK_B = frame(YOUTH_A, [
+  [15, 5, '.'], [15, 6, 'o'], [15, 7, 'o'], [15, 8, 'o'], [15, 9, 'o'], [15, 10, '.'],
+]);
+const YOUTH_TEA_A = frame(YOUTH_A, [
+  [8, 13, 'O'], [9, 14, 'O'],
+]);
+const YOUTH_TEA_B = frame(YOUTH_A, [
+  [4, 13, 'O'], [4, 14, 'O'],
+  [5, 12, 'O'], [5, 13, 'O'],
+]);
+const YOUTH_HAPPY_A = frame(YOUTH_A, [
+  [8, 0, 'o'], [8, 15, 'o'],
+  [9, 0, 'R'], [9, 15, 'R'],
+]);
+const YOUTH_HAPPY_B = frame(YOUTH_A, [
+  // 上下にぴょん（転写）
+  [13, 4, 'O'], [13, 11, 'O'],
+]);
+const YOUTH_SLEEP_A = frame(YOUTH_A, [
+  [5, 4, 'O'], [5, 5, 'O'], [5, 6, 'O'], [5, 9, 'O'], [5, 10, 'O'], [5, 11, 'O'],
+]);
+
+// ============= せいたい（炎の冠を被った完全体） =============
+const ADULT_A = [
+  "....r..r..r.....",
+  "...rrR.rR.rrR...",
+  "...rRRrRRrRRR...",
+  "..oRRRRRRRRRRo..",
+  ".oOOyyyyyyyyOOo.",
+  ".oOykkywwwykkyOo",
+  ".oOyykwwkkwwkyOo",
+  "oOOyyyyyyyyyyOOo",
+  "oRROOOOOOOOOORRo",
+  "oRRRoOOOOOOoRRRo",
+  "oRRRoORyyROoRRRo",
+  ".oRRoORyyROoRRo.",
+  ".oRRoOOOOOOoRRo.",
+  "..oooOOOOOOooo..",
+  "...oOOOooOOOo...",
+  "....ooo..ooo....",
+];
+// 炎の冠が揺らぐ
+const ADULT_B = [
+  ".....r..r..r....",
+  "...rrR.rRR.rrR..",
+  "..rRRRrRRRrRRRR.",
+  "..oRRRRRRRRRRo..",
+  ".oOOyyyyyyyyOOo.",
+  ".oOykkywwwykkyOo",
+  ".oOyykwwkkwwkyOo",
+  "oOOyyyyyyyyyyOOo",
+  "oRROOOOOOOOOORRo",
+  "oRRRoOOOOOOoRRRo",
+  "oRRRoORyyROoRRRo",
+  ".oRRoORyyROoRRo.",
+  ".oRRoOOOOOOoRRo.",
+  "..oooOOOOOOooo..",
+  "...oOOOooOOOo...",
+  "....ooo..ooo....",
+];
+const ADULT_WALK_A = frame(ADULT_A, [
+  [15, 7, '.'], [15, 8, '.'],
+]);
+const ADULT_WALK_B = frame(ADULT_A, [
+  [14, 7, '.'], [14, 8, '.'],
+  [15, 4, '.'], [15, 5, 'o'], [15, 10, 'o'], [15, 11, '.'],
+]);
+const ADULT_TEA_A = frame(ADULT_A, [
+  [9, 14, 'O'], [10, 14, 'O'],
+]);
+const ADULT_TEA_B = frame(ADULT_A, [
+  [4, 13, 'y'], [4, 14, 'O'],
+  [5, 12, 'O'], [5, 13, 'O'], [5, 14, 'O'],
+]);
+const ADULT_HAPPY_A = frame(ADULT_B, [
+  [4, 1, 'y'], [4, 14, 'y'],
+]);
+const ADULT_HAPPY_B = frame(ADULT_A, [
+  [4, 1, 'y'], [4, 14, 'y'],
+  [7, 0, 'y'], [7, 15, 'y'],
+]);
+const ADULT_SLEEP_A = frame(ADULT_A, [
+  [5, 4, 'O'], [5, 5, 'O'], [5, 6, 'O'], [5, 9, 'O'], [5, 10, 'O'], [5, 11, 'O'],
+]);
+
+// ============= スプライト辞書 =============
+const SPRITES = {
+  egg: {
+    idle:  [EGG_A, EGG_B],
+    happy: [EGG_HAPPY_A, EGG_HAPPY_B],
+    think: [EGG_A, EGG_B],
+  },
+  hina: {
+    idle:  [HINA_A, HINA_B],
+    walk:  [HINA_WALK_A, HINA_WALK_B],
+    happy: [HINA_HAPPY_A, HINA_HAPPY_B],
+    sleep: [HINA_SLEEP_A, HINA_SLEEP_A],
+    think: [HINA_A, HINA_B],
+  },
+  child: {
+    idle:  [CHILD_A, CHILD_B],
+    walk:  [CHILD_WALK_A, CHILD_WALK_B],
+    tea:   [CHILD_TEA_A, CHILD_TEA_B],
+    eat:   [CHILD_EAT_A, CHILD_EAT_B],
+    sleep: [CHILD_SLEEP_A, CHILD_SLEEP_B],
+    think: [CHILD_THINK_A, CHILD_THINK_B],
+    happy: [CHILD_HAPPY_A, CHILD_HAPPY_B],
+  },
+  youth: {
+    idle:  [YOUTH_A, YOUTH_B],
+    walk:  [YOUTH_WALK_A, YOUTH_WALK_B],
+    tea:   [YOUTH_TEA_A, YOUTH_TEA_B],
+    eat:   [YOUTH_TEA_A, YOUTH_TEA_B],
+    sleep: [YOUTH_SLEEP_A, YOUTH_SLEEP_A],
+    think: [YOUTH_A, YOUTH_B],
+    happy: [YOUTH_HAPPY_A, YOUTH_HAPPY_B],
+  },
+  adult: {
+    idle:  [ADULT_A, ADULT_B],
+    walk:  [ADULT_WALK_A, ADULT_WALK_B],
+    tea:   [ADULT_TEA_A, ADULT_TEA_B],
+    eat:   [ADULT_TEA_A, ADULT_TEA_B],
+    sleep: [ADULT_SLEEP_A, ADULT_SLEEP_A],
+    think: [ADULT_A, ADULT_B],
+    happy: [ADULT_HAPPY_A, ADULT_HAPPY_B],
+  },
+};
+
+const STAGES = [
+  { key: 'egg',   name: 'たまご',   thresh: 'streak 0〜2日',  story: '習慣を始めたばかり。何になるかな？' },
+  { key: 'hina',  name: 'ひな',     thresh: 'streak 3日〜',   story: '殻を破った！はじめての一歩を踏み出した。' },
+  { key: 'child', name: 'こども',   thresh: 'streak 7日〜',   story: '1週間の壁を越えた証。立ち上がる勇気が芽生えた。' },
+  { key: 'youth', name: 'せいねん', thresh: 'streak 21日〜',  story: 'マントをまとった。困難に立ち向かう勇者へ。' },
+  { key: 'adult', name: 'せいたい', thresh: 'streak 60日〜',  story: '炎の冠を戴いた完全体。あなたを照らす相棒。' },
+];
+
+// ========== ルーム小物（ピクセル絵） ==========
+const PROP_WINDOW = [
+  "oooooooo",
+  "obbbbbbo",
+  "obbbbbbo",
+  "obwwwwbo",
+  "obwwwwbo",
+  "obwwwwbo",
+  "obwwwwbo",
+  "oooooooo",
+];
+const PROP_RUG = [
+  "................",
+  "rrrrrRRRRRrrrrr.",
+  "rrrrrRRRRRrrrrr.",
+  "................",
+];
+const PROP_PLANT = [
+  "...gggg...",
+  "..gggggg..",
+  ".gggggggg.",
+  "..gggggg..",
+  "..ggggggg.",
+  "...gggg...",
+  "....gg....",
+  "...bbbb...",
+  "...bbbb...",
+  "...bbbb...",
+];
+// パレット拡張
+PALETTE['b'] = '#6c8ebf'; // 窓のブルー
+PALETTE['g'] = '#7cb342'; // 緑（葉）
+PALETTE['p'] = '#b08968'; // 茶（持ち手・パン）
+PALETTE['t'] = '#d4a373'; // 木目
+PALETTE['n'] = '#8b6f47'; // 焦げ茶
+PALETTE['G'] = '#c0c0c0'; // 銀（湯気）
+PALETTE['B'] = '#e6694a'; // バブル赤
+PALETTE['Y'] = '#fff176'; // ライトイエロー
+PALETTE['Z'] = '#5a7aa8'; // Z'sの色
+
+const PROP_CUP = [
+  ".G..G..G.....",
+  "G..G..G..G...",
+  ".G..G..G.....",
+  "tttttttttttt.",
+  "tppppppppppt.",
+  "tpwwwwwwwwpt.",
+  "tpwwwwwwwwpt.",
+  "tppppppppppp.",
+  "ttttttttttt..",
+];
+const PROP_ZZZ = [
+  "....ZZZZ....",
+  "......ZZ....",
+  "....ZZ......",
+  "..ZZZZZZ....",
+  "............",
+  "..ZZZZZZ....",
+  "....ZZZ.....",
+  "..ZZZ.......",
+  "..ZZZZZZ....",
+  "............",
+  "ZZZZZZ......",
+  "...ZZ.......",
+  "..ZZ........",
+  ".ZZZZZZ.....",
+];
+const PROP_BUBBLE = [
+  "..oooooooo..",
+  ".oBBBBBBBBo.",
+  "oBBBBBBBBBBo",
+  "oBBoooBBBBBo",
+  "oBBoBoBBBBBo",
+  "oBBBBoBBBBBo",
+  "oBBBoBBBBBBo",
+  "oBBBoBBBBBBo",
+  "oBBBBBBBBBBo",
+  "oBBoBBBBBBBo",
+  "oBBoBBBBBBBo",
+  ".oBBBBBBBBo.",
+  "..oooooooo..",
+  "...oo.......",
+  "..oo........",
+  "..o.........",
+];
+const PROP_SPARKLE = [
+  "....yy....",
+  "...yyyy...",
+  "..yywwyy..",
+  "yyyywwyyyy",
+  "yywwwwwwyy",
+  "yywwwwwwyy",
+  "yyyywwyyyy",
+  "..yywwyy..",
+  "...yyyy...",
+  "....yy....",
+];
+PALETTE['y'] = '#ffd93d';
+const PROP_ONIGIRI = [
+  "....nnnn....",
+  "...nnnnnn...",
+  "..nwwwwwwn..",
+  ".wwwwwwwwww.",
+  "wwwwwwwwwwww",
+  "wwwwwwwwwwww",
+  "wwwwwwwwwwww",
+  "nnnnnnnnnnnn",
+  "nnnnnnnnnnnn",
+];
+
+// ========== レンダリング ==========
+function renderSprite(data, size = 96) {
+  const h = data.length, w = data[0].length;
+  const px = size / Math.max(w, h);
+  const svg = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${size}" height="${size}" shape-rendering="crispEdges">`];
+  for (let y = 0; y < h; y++) {
+    const row = data[y] || '';
+    for (let x = 0; x < w; x++) {
+      const ch = row[x] || '.';
+      const color = PALETTE[ch];
+      if (color) svg.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`);
+    }
+  }
+  svg.push('</svg>');
+  return svg.join('');
+}
+
+function buildStageCards() {
+  const row = document.getElementById('stageRow');
+  row.innerHTML = STAGES.map((s, i) => `
+    <div class="stage-card" data-idx="${i}" onclick="setStage(${i})">
+      <div class="sprite" id="card-${s.key}">${renderSprite(SPRITES[s.key].idle[0], 96)}</div>
+      <div class="stage-name">${s.name}</div>
+      <div class="stage-thresh">${s.thresh}</div>
+    </div>
+  `).join('');
+  // カードもアイドル2フレームで生きてる感を出す
+  let cardFrame = 0;
+  setInterval(() => {
+    cardFrame = (cardFrame + 1) % 2;
+    STAGES.forEach(s => {
+      const el = document.getElementById('card-' + s.key);
+      if (el) el.innerHTML = renderSprite(SPRITES[s.key].idle[cardFrame], 96);
+    });
+  }, 600);
+}
+
+// ========== ハビタットへの小物配置 ==========
+document.getElementById('propWindow').innerHTML = renderSprite(PROP_WINDOW, 64);
+document.getElementById('propRug').innerHTML    = renderSprite(PROP_RUG, 128);
+document.getElementById('propPlant').innerHTML  = renderSprite(PROP_PLANT, 60);
+document.getElementById('overlayCup').innerHTML     = renderSprite(PROP_CUP, 48);
+document.getElementById('overlayZzz').innerHTML     = renderSprite(PROP_ZZZ, 48);
+document.getElementById('overlayBubble').innerHTML  = renderSprite(PROP_BUBBLE, 48);
+document.getElementById('overlaySparkle').innerHTML = renderSprite(PROP_SPARKLE, 32);
+document.getElementById('overlayFood').innerHTML    = renderSprite(PROP_ONIGIRI, 36);
+
+// ========== 状態管理 ==========
+let currentStage = 0;
+let currentAction = 'idle';
+let autoMode = true;
+let autoTimer = null;
+let charPos = 200;  // 横位置 (px)
+let charDir = 1;    // 1=右向き, -1=左向き
+
+function setStage(idx, animClass) {
+  currentStage = Math.max(0, Math.min(STAGES.length - 1, idx));
+  const s = STAGES[currentStage];
+  const ch = document.getElementById('character');
+  if (animClass) {
+    ch.classList.add(animClass);
+    setTimeout(() => ch.classList.remove(animClass), 900);
+  }
+  document.getElementById('focusName').textContent = s.name;
+  document.getElementById('focusThresh').textContent = s.thresh;
+  document.getElementById('narration').textContent = s.story;
+  document.querySelectorAll('.stage-card').forEach((c, i) => {
+    c.classList.toggle('active', i === currentStage);
+  });
+  // 現在のアクションを再適用してフレーム差し替え
+  setAction(currentAction || 'idle');
+}
+
+function evolve() {
+  if (currentStage >= STAGES.length - 1) return;
+  setStage(currentStage + 1);
+  setAction('happy', 'うれしくて進化した！');
+  // 進化アニメ
+  const ch = document.getElementById('character');
+  ch.classList.add('evolving');
+  setTimeout(() => ch.classList.remove('evolving'), 900);
+}
+function devolve() {
+  if (currentStage <= 0) return;
+  setStage(currentStage - 1);
+  setAction('think', 'すこし元気がない…');
+  const ch = document.getElementById('character');
+  ch.classList.add('devolving');
+  setTimeout(() => ch.classList.remove('devolving'), 900);
+}
+
+// ========== アクションシステム ==========
+const ACTION_LABELS = {
+  idle:  'ぼーっとしている…',
+  walk:  'お散歩中',
+  tea:   'お茶を飲んでいる',
+  eat:   'ごはんを食べている',
+  sleep: 'おひるね中…',
+  think: '考えごと中',
+  happy: 'うれしそう！',
+};
+
+function hideAllOverlays() {
+  ['overlayCup','overlayZzz','overlayBubble','overlaySparkle','overlayFood'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+
+function showOverlay(id, x, y, animClass) {
+  const el = document.getElementById(id);
+  el.classList.remove('hidden');
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.className = 'prop-overlay' + (animClass ? ' ' + animClass : '');
+}
+
+let frameTimer = null;
+
+function startFrameLoop(stageKey, action) {
+  if (frameTimer) { clearInterval(frameTimer); frameTimer = null; }
+  const set = SPRITES[stageKey];
+  const frames = (set && set[action]) || (set && set.idle) || [];
+  if (!frames.length) return;
+  const ch = document.getElementById('character');
+  let idx = 0;
+  ch.innerHTML = renderSprite(frames[0], 96);
+  if (frames.length > 1) {
+    // 行動ごとに切替速度を変える
+    const speed = action === 'walk'  ? 220
+                : action === 'happy' ? 200
+                : action === 'tea'   ? 600
+                : action === 'eat'   ? 400
+                : action === 'sleep' ? 1100
+                : action === 'think' ? 700
+                : 600;  // idle
+    frameTimer = setInterval(() => {
+      idx = (idx + 1) % frames.length;
+      ch.innerHTML = renderSprite(frames[idx], 96);
+    }, speed);
+  }
+}
+
+function setAction(action, label) {
+  currentAction = action;
+  const ch = document.getElementById('character');
+  ch.className = 'character ' + action + (charDir === -1 ? ' flip' : '');
+  document.getElementById('actionLabel').textContent = label || ACTION_LABELS[action] || '';
+  hideAllOverlays();
+
+  const stageKey = STAGES[currentStage].key;
+  startFrameLoop(stageKey, action);
+
+  const charBottom = 30;
+  const charLeft = charPos;
+
+  switch (action) {
+    case 'walk': {
+      const target = 50 + Math.random() * 350;
+      ch.style.transitionDuration = (Math.abs(target - charPos) / 60) + 's';
+      charDir = target > charPos ? 1 : -1;
+      ch.className = 'character walk' + (charDir === -1 ? ' flip' : '');
+      charPos = target;
+      ch.style.left = charPos + 'px';
+      break;
+    }
+    case 'tea':
+      showOverlay('overlayCup', charLeft + 70, 240 - charBottom - 60, 'bubble');
+      break;
+    case 'eat':
+      showOverlay('overlayFood', charLeft + 60, 240 - charBottom - 50);
+      break;
+    case 'sleep':
+      showOverlay('overlayZzz', charLeft + 70, 240 - charBottom - 90, 'zzz');
+      break;
+    case 'think':
+      showOverlay('overlayBubble', charLeft + 60, 240 - charBottom - 110, 'bubble');
+      break;
+    case 'happy':
+      showOverlay('overlaySparkle', charLeft + 80, 240 - charBottom - 80, 'sparkle');
+      break;
+  }
+}
+
+function forceAction(action) {
+  autoMode = false;
+  document.getElementById('btnAuto').textContent = '▶ 自動行動';
+  setAction(action);
+}
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  document.getElementById('btnAuto').textContent = autoMode ? '⏸ 自動行動' : '▶ 自動行動';
+  if (autoMode) scheduleNext();
+}
+
+// ステージ別の「できる行動」
+function availableActions() {
+  if (currentStage === 0) return ['idle', 'idle', 'happy', 'think']; // たまごは動けない
+  if (currentStage === 1) return ['idle', 'walk', 'happy', 'think', 'sleep'];
+  return ['idle', 'walk', 'walk', 'tea', 'eat', 'sleep', 'think', 'happy'];
+}
+
+function scheduleNext() {
+  if (autoTimer) clearTimeout(autoTimer);
+  if (!autoMode) return;
+  // 行動の持続時間
+  const duration = currentAction === 'walk'  ? 3000
+                 : currentAction === 'sleep' ? 5000
+                 : currentAction === 'tea'   ? 4000
+                 : currentAction === 'eat'   ? 4000
+                 : currentAction === 'think' ? 3500
+                 : currentAction === 'happy' ? 1500
+                 : 2500;
+  autoTimer = setTimeout(() => {
+    if (!autoMode) return;
+    const pool = availableActions();
+    let next = pool[Math.floor(Math.random() * pool.length)];
+    // 同じ行動が続かないように軽く回避
+    if (next === currentAction && Math.random() < 0.6) {
+      next = pool[Math.floor(Math.random() * pool.length)];
+    }
+    setAction(next);
+    scheduleNext();
+  }, duration);
+}
+
+buildStageCards();
+setStage(0);
+setAction('idle');
+scheduleNext();
+</script>
+</body>
+</html>
