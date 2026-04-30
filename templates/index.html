@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Task Organizer</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="タスク">
+  <meta name="theme-color" content="#4A7FA5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=3">
+</head>
+<body>
+
+<div class="offline-banner hidden" id="offline-banner" role="status">
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+    <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+    <path d="M6.5 3.5V7M6.5 9.5V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  オフライン中 ― タスクの変更はオンライン復帰後に自動同期されます
+</div>
+
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-left">
+      <span class="app-name">Task Organizer</span>
+    </div>
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" data-tab="chat" role="tab">チャット</button>
+      <button class="tab-btn" data-tab="tasks" role="tab">タスク</button>
+      <button class="tab-btn" data-tab="calendar" role="tab">カレンダー</button>
+      <button class="tab-btn" data-tab="projects" role="tab">プロジェクト</button>
+      <button class="tab-btn" data-tab="review" role="tab">週次レビュー</button>
+      <button class="tab-btn" data-tab="archive" role="tab">アーカイブ</button>
+      <button class="tab-btn" data-tab="diary" role="tab">日記</button>
+      <button class="tab-btn" data-tab="memo" role="tab">メモ</button>
+    </nav>
+    <div class="header-right"></div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- Chat Panel (ブレインダンプ専用) -->
+    <div class="tab-panel active" id="panel-chat">
+      <div class="chat-outer-layout">
+        <div class="chat-layout">
+
+          <!-- Messages -->
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-welcome" id="chat-welcome-dump">
+              <div class="welcome-mark">◎</div>
+              <h3 class="welcome-title">頭の中を書き出してみましょう</h3>
+              <p class="welcome-desc">思っていること、気になっていることを、そのまま話してください。</p>
+              <p class="welcome-desc dump-welcome-hint">こちらから質問しながら、整理のお手伝いをします。</p>
+            </div>
+          </div>
+
+          <!-- Typing indicator -->
+          <div class="typing-indicator hidden" id="typing-indicator">
+            <div class="typing-bubble">
+              <span class="typing-mark">✦</span>
+              <div class="typing-dots">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="chat-input-area">
+            <div class="chat-input-wrap">
+              <textarea
+                id="chat-input"
+                class="chat-textarea"
+                placeholder=""
+                rows="1"
+              ></textarea>
+              <button class="btn-send" id="chat-send" title="送信 (Enter)">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M2 9L16 9M16 9L10 3M16 9L10 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="chat-hint">
+              <span>Ctrl + Enter で送信 &nbsp;·&nbsp; Enter で改行</span>
+              <button class="btn-chat-save" id="chat-save" title="この会話を要約して保存">保存</button>
+              <button class="btn-chat-reset" id="chat-reset" title="会話をリセット">会話をリセット</button>
+            </div>
+          </div>
+
+        </div><!-- /chat-layout -->
+      </div><!-- /chat-outer-layout -->
+    </div>
+
+    <!-- Tasks Panel (v2: 2カラム + 習慣サブビュー) -->
+    <div class="tab-panel" id="panel-tasks">
+      <div class="tasks-layout-v2">
+
+        <!-- ── Tasks toolbar ── -->
+        <div class="tasks-toolbar-v2">
+          <div class="tasks-toolbar-left">
+            <div class="view-toggle tasks-subview-toggle">
+              <button class="view-btn tasks-subview-btn active" data-tasks-view="board">📋 ボード</button>
+              <button class="view-btn tasks-subview-btn" data-tasks-view="habits">🔁 習慣</button>
+            </div>
+            <span class="task-count" id="task-count"></span>
+          </div>
+          <div class="tasks-toolbar-right">
+            <button class="btn-primary" id="btn-add-task">＋ タスクを追加</button>
+            <button class="btn-primary tasks-toolbar-add-habit hidden" id="btn-add-habit-toolbar">＋ 習慣を追加</button>
+          </div>
+        </div>
+
+        <!-- ── Board sub-view ── -->
+        <div class="tasks-subview tasks-subview-board" id="tasks-subview-board">
+          <!-- スマホ専用: 列切替ナビ -->
+          <div class="mobile-col-nav" id="mobile-col-nav">
+            <button class="mobile-col-btn active" data-col="inbox">📥 受信</button>
+            <button class="mobile-col-btn" data-col="lists">📋 リスト</button>
+            <button class="mobile-col-btn" data-col="daily">📅 今日</button>
+          </div>
+          <div class="tasks-body-v2" id="tasks-body-v2">
+
+            <!-- 2カラム本体 -->
+            <div class="task-board" id="task-board">
+
+              <!-- 左: オプションなし (inbox) -->
+              <section class="board-col board-col-inbox" id="board-col-inbox">
+                <div class="board-col-head">
+                  <span class="board-col-title">📥 オプションなし</span>
+                  <span class="board-col-count" id="board-inbox-count">0</span>
+                </div>
+                <div class="board-col-body" id="board-inbox-body" data-drop-status="inbox">
+                  <div class="board-col-empty">仕分け待ちのタスクはありません</div>
+                </div>
+                <div class="board-col-footer board-col-footer-desktop">
+                  <button class="btn-primary board-col-add-btn" id="btn-add-task-footer">＋ タスクを追加</button>
+                </div>
+              </section>
+
+              <!-- 中央: 各リスト縦並び -->
+              <section class="board-col board-col-lists">
+                <div class="board-col-head">
+                  <span class="board-col-title">📋 仕分け済みリスト</span>
+                </div>
+                <div class="board-col-body board-lists-body" id="board-lists-body"></div>
+              </section>
+
+            </div><!-- /task-board -->
+
+            <!-- 今日/明日 サイドパネル -->
+            <aside class="daily-panel daily-panel-v2" id="daily-panel">
+              <div class="daily-panel-tabs">
+                <button class="daily-tab active" data-daily-tab="today">今日</button>
+                <button class="daily-tab" data-daily-tab="tomorrow">明日</button>
+              </div>
+              <div class="daily-panel-body" id="daily-panel-today">
+                <div class="daily-summary" id="daily-summary-today"></div>
+                <div class="daily-tasks-drop" id="daily-tasks-today" data-drop-scope="today">
+                  <div class="daily-empty">中央のリストからドラッグ</div>
+                </div>
+                <section class="daily-section">
+                  <h4 class="daily-section-title">習慣</h4>
+                  <div class="daily-habits" id="daily-habits-today"></div>
+                </section>
+              </div>
+              <div class="daily-panel-body hidden" id="daily-panel-tomorrow">
+                <div class="daily-summary" id="daily-summary-tomorrow"></div>
+                <div class="daily-tasks-drop" id="daily-tasks-tomorrow" data-drop-scope="tomorrow">
+                  <div class="daily-empty">中央のリストからドラッグ</div>
+                </div>
+                <section class="daily-section">
+                  <h4 class="daily-section-title">習慣</h4>
+                  <div class="daily-habits" id="daily-habits-tomorrow"></div>
+                </section>
+              </div>
+            </aside>
+
+          </div><!-- /tasks-body-v2 -->
+
+          <!-- ── 詳細パネル（tasks-subview-board 内の右端オーバーレイ） ── -->
+          <aside class="detail-panel" id="detail-panel">
+            <div class="detail-panel-inner">
+              <div class="detail-panel-top">
+                <button class="btn-icon detail-panel-close" id="detail-panel-close" title="閉じる">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="detail-panel-body" id="detail-panel-body">
+                <div class="detail-empty">
+                  <div class="detail-empty-icon">←</div>
+                  <p>タスクを選択してください</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+        </div><!-- /tasks-subview-board -->
+
+        <!-- ── Habits sub-view ── -->
+        <div class="tasks-subview tasks-subview-habits hidden" id="tasks-subview-habits">
+          <div class="habit-list-wrap" id="habit-list"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Projects Panel (v2 復活) -->
+    <div class="tab-panel" id="panel-projects">
+      <div class="projects-layout">
+        <div class="projects-toolbar">
+          <div class="view-toggle projects-view-toggle">
+            <button class="view-btn projects-view-btn active" data-projects-view="active">進行中</button>
+            <button class="view-btn projects-view-btn" data-projects-view="drafting">作成中</button>
+            <button class="view-btn projects-view-btn" data-projects-view="completed">完了</button>
+          </div>
+          <button class="btn-primary" id="btn-add-project">＋ プロジェクトを追加</button>
+        </div>
+        <div class="projects-grid" id="projects-grid"></div>
+      </div>
+    </div>
+
+    <!-- Calendar Panel -->
+    <div class="tab-panel" id="panel-calendar">
+      <div class="schedule-layout">
+        <div class="schedule-toolbar">
+          <div class="view-toggle">
+            <button class="view-btn active" data-view="list">リスト</button>
+            <button class="view-btn" data-view="month">月</button>
+            <button class="view-btn" data-view="week">週</button>
+          </div>
+          <div class="schedule-nav hidden" id="schedule-nav">
+            <button class="schedule-nav-btn" id="schedule-nav-prev">‹</button>
+            <span class="schedule-nav-label" id="schedule-nav-label"></span>
+            <button class="schedule-nav-btn" id="schedule-nav-next">›</button>
+          </div>
+        </div>
+        <div class="schedule-content" id="schedule-content"></div>
+      </div>
+    </div>
+
+    <!-- Weekly Review Panel -->
+    <div class="tab-panel" id="panel-review">
+      <div class="review-layout">
+        <div class="review-head">
+          <h3 class="review-title">週次レビュー</h3>
+          <p class="review-desc">今週の状態を見直して、来週の準備をしましょう。</p>
+        </div>
+        <div class="review-steps" id="review-steps"></div>
+        <div class="review-detail-wrap">
+          <div class="review-detail-head">
+            <button class="review-back-btn btn-ghost" id="review-back-btn" type="button">← 一覧へ</button>
+            <h4 class="review-detail-title" id="review-detail-title">Step を選んでください</h4>
+          </div>
+          <div class="review-detail-body" id="review-detail-body">
+            <div class="review-empty">左のステップをクリックすると、該当タスクの一覧と操作が表示されます。</div>
+          </div>
+        </div>
+        <div class="review-footer">
+          <button class="btn-primary" id="btn-review-complete">レビュー完了を記録</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Archive Panel -->
+    <div class="tab-panel" id="panel-archive">
+      <div class="archive-layout">
+        <div class="archive-toolbar">
+          <div class="archive-search-wrap">
+            <svg class="archive-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <input class="archive-search-input" id="archive-search" type="text" placeholder="タスクを検索..." autocomplete="off">
+          </div>
+          <div class="archive-filters">
+            <select class="filter-select" id="filter-category">
+              <option value="">すべてのカテゴリー</option>
+            </select>
+            <select class="filter-select" id="filter-sort">
+              <option value="newest">新しい順</option>
+              <option value="oldest">古い順</option>
+              <option value="title">タイトル順</option>
+            </select>
+          </div>
+        </div>
+        <div class="archive-list-wrap" id="archive-list-wrap">
+          <div class="archive-header-row">
+            <span class="archive-count" id="archive-count"></span>
+          </div>
+          <div class="archive-grid" id="archive-grid">
+            <div class="archive-empty" id="archive-empty">アーカイブされたタスクはありません</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diary Panel -->
+    <div class="tab-panel" id="panel-diary">
+      <div class="diary-layout">
+        <div class="diary-toolbar">
+          <div class="view-toggle diary-mode-toggle">
+            <button class="view-btn diary-mode-btn active" data-diary-mode="write">記録</button>
+            <button class="view-btn diary-mode-btn" data-diary-mode="view">閲覧</button>
+          </div>
+          <div class="diary-view-toggle hidden" id="diary-view-toggle">
+            <div class="view-toggle">
+              <button class="view-btn diary-view-btn active" data-diary-view="calendar">カレンダー</button>
+              <button class="view-btn diary-view-btn" data-diary-view="daily">日別</button>
+            </div>
+            <div class="schedule-nav hidden" id="diary-cal-nav">
+              <button class="schedule-nav-btn" id="diary-nav-prev">‹</button>
+              <span class="schedule-nav-label" id="diary-nav-label"></span>
+              <button class="schedule-nav-btn" id="diary-nav-next">›</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="diary-write-wrap" id="diary-write-wrap">
+          <div class="diary-form">
+            <section class="diary-section">
+              <div class="diary-section-head">
+                <span class="diary-section-title">感情・体調の推移</span>
+                <div class="diary-timeline-tools">
+                  <button type="button" class="diary-tl-history-btn" id="diary-tl-undo" title="元に戻す" disabled aria-label="元に戻す">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+                  </button>
+                  <button type="button" class="diary-tl-history-btn" id="diary-tl-redo" title="やり直し" disabled aria-label="やり直し">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
+                  </button>
+                  <div class="diary-timeline-series-toggle">
+                    <button type="button" class="series-btn active" data-series="emotion">感情</button>
+                    <button type="button" class="series-btn" data-series="body">体調</button>
+                  </div>
+                </div>
+              </div>
+              <div class="diary-timeline" id="diary-timeline"></div>
+              <div class="diary-timeline-hint">グラフをタップ：アンカー追加／ドラッグで移動／ダブルクリック・長押しで削除</div>
+            </section>
+            <section class="diary-section">
+              <div class="diary-section-head">
+                <span class="diary-section-title">体調メモ</span>
+              </div>
+              <textarea id="body-text" class="diary-textarea" rows="2" placeholder="体調を言葉で記録（任意）"></textarea>
+            </section>
+            <section class="diary-section">
+              <div class="diary-section-head">
+                <span class="diary-section-title">感情メモ</span>
+              </div>
+              <textarea id="emo-text" class="diary-textarea" rows="2" placeholder="感情を言葉で記録（任意）"></textarea>
+            </section>
+            <section class="diary-section">
+              <div class="diary-section-head">
+                <span class="diary-section-title">行動</span>
+              </div>
+              <div class="diary-action-list" id="diary-actions"></div>
+              <button class="diary-add-btn" id="diary-add-action" type="button">⊕ 行動を追加</button>
+            </section>
+            <section class="diary-section">
+              <div class="diary-section-head">
+                <span class="diary-section-title">考えたこと</span>
+              </div>
+              <div class="diary-thought-list" id="diary-thoughts"></div>
+              <button class="diary-add-btn" id="diary-add-thought" type="button">⊕ トピックを追加</button>
+            </section>
+            <div class="diary-action-bar">
+              <button class="btn-primary" id="diary-save-btn">記録する</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="diary-view-wrap hidden" id="diary-view-wrap">
+          <div class="diary-view-head">
+            <div class="diary-view-summary" id="diary-view-summary"></div>
+            <button class="btn-primary" id="diary-consolidate-btn">メモに保存</button>
+          </div>
+          <div class="diary-view-content" id="diary-view-content"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Memo Panel -->
+    <div class="tab-panel" id="panel-memo">
+      <div class="memo-layout">
+        <div class="memo-toolbar">
+          <div class="view-toggle">
+            <button class="view-btn memo-view-btn active" data-view="tree">ツリー</button>
+            <button class="view-btn memo-view-btn" data-view="calendar">カレンダー</button>
+          </div>
+          <div class="memo-cal-nav hidden" id="memo-cal-nav">
+            <button class="schedule-nav-btn" id="memo-nav-prev">‹</button>
+            <span class="schedule-nav-label" id="memo-nav-label"></span>
+            <button class="schedule-nav-btn" id="memo-nav-next">›</button>
+          </div>
+        </div>
+        <div class="memo-tree-wrap" id="memo-tree-wrap">
+          <div class="memo-empty" id="memo-empty">保存されたメモはありません<br><span class="memo-empty-hint">「頭の整理」モードで会話し、「保存」ボタンで記録できます</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Add Project Modal ── -->
+<div class="modal-backdrop" id="add-project-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 class="modal-title">新しいプロジェクト</h3>
+    <div class="field">
+      <label class="field-label" for="input-project-title">プロジェクト名 <span class="field-required">必須</span></label>
+      <input class="field-input" id="input-project-title" type="text" placeholder="プロジェクト名を入力してください" autocomplete="off">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="btn-add-project-cancel">キャンセル</button>
+      <button class="btn-primary" id="btn-add-project-save">作成する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Task Modal ── -->
+<div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 class="modal-title">新しいタスク</h3>
+    <p class="modal-desc">タスクは「オプションなし」リストに追加されます。仕分けは中央リストへの D&amp;D で行ってください。</p>
+    <div class="field">
+      <label class="field-label" for="input-task-title">タイトル</label>
+      <input class="field-input" id="input-task-title" type="text" placeholder="タスクの名前を入力してください" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="field-label" for="input-task-category">カテゴリー（任意）</label>
+      <select class="field-input" id="input-task-category">
+        <option value="">未設定</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label" for="input-task-estimate">見込み時間（分・任意）</label>
+      <input class="field-input" id="input-task-estimate" type="number" min="1" max="1440" placeholder="例: 30">
+    </div>
+    <div class="field">
+      <label class="field-label" for="input-task-deadline">期限（任意）</label>
+      <input class="field-input" id="input-task-deadline" type="date">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="btn-modal-cancel">キャンセル</button>
+      <button class="btn-primary" id="btn-modal-save">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Detail Settings Modal v2 ── -->
+<div class="modal-backdrop" id="detail-settings-backdrop" aria-hidden="true">
+  <div class="modal detail-settings-modal" role="dialog" aria-modal="true">
+    <div class="detail-settings-head">
+      <h3 class="modal-title">詳細を決める</h3>
+      <button class="btn-icon detail-settings-close" id="btn-detail-settings-close" title="閉じる">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="detail-settings-body">
+      <div class="detail-settings-form">
+        <div class="field">
+          <label class="field-label" for="ds-title">タイトル <span class="field-required">必須</span></label>
+          <input class="field-input" id="ds-title" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label" for="ds-category-id">カテゴリー</label>
+          <div class="ds-category-row">
+            <select class="field-input" id="ds-category-id">
+              <option value="">未設定</option>
+            </select>
+            <button class="btn-ghost ds-cat-add-btn" id="btn-ds-cat-add" type="button" title="新しいカテゴリーを追加">＋</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="ds-estimate-minutes">見込み時間（分）</label>
+          <input class="field-input" id="ds-estimate-minutes" type="number" min="1" max="1440" placeholder="例: 30">
+        </div>
+        <div class="field">
+          <label class="field-label" for="ds-deadline">期限</label>
+          <input class="field-input" id="ds-deadline" type="date">
+        </div>
+        <div class="field ds-field-scheduled-date">
+          <label class="field-label" for="ds-scheduled-date">実行日 <span class="field-required">必須 (calendar)</span></label>
+          <input class="field-input" id="ds-scheduled-date" type="date">
+        </div>
+        <div class="field ds-field-waiting-for">
+          <label class="field-label" for="ds-waiting-for">待ち事項（任意）</label>
+          <input class="field-input" id="ds-waiting-for" type="text" placeholder="例: 田中さんの返信">
+        </div>
+        <div class="field">
+          <label class="field-label">ロードマップ</label>
+          <div class="ds-list" id="ds-roadmap"></div>
+          <button class="btn-ghost ds-add-btn" id="btn-ds-add-roadmap" type="button">⊕ ステップを追加</button>
+        </div>
+        <div class="field">
+          <label class="field-label">準備リスト</label>
+          <div class="ds-list" id="ds-checklist"></div>
+          <button class="btn-ghost ds-add-btn" id="btn-ds-add-checklist" type="button">⊕ 項目を追加</button>
+        </div>
+        <div class="detail-settings-footer">
+          <span class="ds-hint" id="ds-hint"></span>
+          <button class="btn-primary" id="btn-ds-save">保存する</button>
+        </div>
+      </div>
+      <div class="detail-settings-ai">
+        <div class="ds-ai-head">
+          <span class="ds-ai-title">AI に相談（任意）</span>
+          <span class="ds-ai-hint">category / 見込み時間 / ロードマップ / 準備物を提案してもらえます</span>
+        </div>
+        <div class="ds-ai-messages" id="ds-ai-messages"></div>
+        <div class="ds-ai-input-wrap">
+          <textarea class="ds-ai-input" id="ds-ai-input" rows="2" placeholder="例: ステップを 5 つくらいに分けたいです"></textarea>
+          <button class="btn-primary ds-ai-send" id="btn-ds-ai-send">送信</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Project Detail Modal ── -->
+<div class="modal-backdrop" id="project-detail-backdrop" aria-hidden="true">
+  <div class="modal project-detail-modal modal-wide" role="dialog" aria-modal="true">
+    <div class="detail-settings-head">
+      <h3 class="modal-title" id="pd-title-label">プロジェクト詳細</h3>
+      <button class="btn-icon" id="btn-project-detail-close" title="閉じる">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="detail-settings-body">
+      <div class="detail-settings-form">
+        <div class="pd-status-row">
+          <span class="pd-status-badge" id="pd-status-badge">作成中</span>
+          <button class="btn-ghost btn-pd-archive" id="btn-pd-archive" title="完了にする">📋 完了にする</button>
+        </div>
+        <div class="field">
+          <label class="field-label" for="pd-title">プロジェクト名 <span class="field-required">必須</span></label>
+          <input class="field-input" id="pd-title" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label" for="pd-completion">完了条件</label>
+          <textarea class="field-input" id="pd-completion" rows="2" placeholder="例: 9月会議で決議"></textarea>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label" for="pd-period-start">開始日</label>
+            <input class="field-input" id="pd-period-start" type="date">
+          </div>
+          <div class="field">
+            <label class="field-label" for="pd-period-end">終了日</label>
+            <input class="field-input" id="pd-period-end" type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">子タスク <span class="pd-children-count" id="pd-children-count">0</span></label>
+          <div class="pd-children" id="pd-children"></div>
+          <div class="pd-add-child-row">
+            <input class="field-input" id="pd-new-child-title" type="text" placeholder="子タスクのタイトル...">
+            <button class="btn-primary" id="btn-pd-add-child">＋追加</button>
+          </div>
+        </div>
+        <div class="detail-settings-footer">
+          <button class="btn-primary" id="btn-pd-activate">✅ 開始する</button>
+          <button class="btn-ghost" id="btn-pd-save">保存</button>
+          <button class="btn-danger" id="btn-pd-delete">🗑 削除</button>
+        </div>
+      </div>
+      <div class="detail-settings-ai">
+        <div class="ds-ai-head">
+          <span class="ds-ai-title">プロジェクト AI 相談</span>
+          <span class="ds-ai-hint">完了条件・子タスク（3〜10個）を提案してもらえます</span>
+        </div>
+        <div class="ds-ai-messages" id="pd-ai-messages"></div>
+        <div class="ds-ai-input-wrap">
+          <textarea class="ds-ai-input" id="pd-ai-input" rows="2" placeholder="例: 3ヶ月で出版したい"></textarea>
+          <button class="btn-primary ds-ai-send" id="btn-pd-ai-send">送信</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Move Validation Toast / Confirm ── -->
+<div class="move-toast hidden" id="move-toast" role="status"></div>
+<div class="modal-backdrop" id="move-confirm-backdrop" aria-hidden="true">
+  <div class="modal move-confirm-modal" role="dialog" aria-modal="true">
+    <h3 class="modal-title" id="move-confirm-title">確認</h3>
+    <p id="move-confirm-message"></p>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="btn-move-confirm-cancel">キャンセル</button>
+      <button class="btn-primary" id="btn-move-confirm-ok">続行</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Habit Create Modal ── -->
+<div class="modal-backdrop" id="habit-form-backdrop" aria-hidden="true">
+  <div class="modal habit-form-modal" role="dialog" aria-modal="true">
+    <h3 class="modal-title">新しい習慣を追加</h3>
+    <div class="field">
+      <label class="field-label" for="habit-form-title-input">タイトル <span class="field-required">必須</span></label>
+      <input class="field-input" id="habit-form-title-input" type="text" placeholder="例: 朝の散歩">
+    </div>
+    <div class="field">
+      <label class="field-label">頻度 <span class="field-required">必須</span></label>
+      <div class="matrix-select">
+        <label class="matrix-option">
+          <input type="radio" name="habit-form-frequency" value="daily" checked>
+          <span class="matrix-label">毎日</span>
+        </label>
+        <label class="matrix-option">
+          <input type="radio" name="habit-form-frequency" value="weekly">
+          <span class="matrix-label">毎週</span>
+        </label>
+      </div>
+    </div>
+    <div class="field hidden" id="habit-form-weekday-field">
+      <label class="field-label" for="habit-form-weekday">曜日 <span class="field-required">必須</span></label>
+      <select class="field-input" id="habit-form-weekday">
+        <option value="0">月曜日</option>
+        <option value="1">火曜日</option>
+        <option value="2">水曜日</option>
+        <option value="3">木曜日</option>
+        <option value="4">金曜日</option>
+        <option value="5">土曜日</option>
+        <option value="6">日曜日</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label" for="habit-form-category">カテゴリー</label>
+      <select class="field-input" id="habit-form-category">
+        <option value="life">ルーティン</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label" for="habit-form-tags">タグ（カンマ区切り、任意）</label>
+      <input class="field-input" id="habit-form-tags" type="text" placeholder="例: 朝, 運動">
+    </div>
+    <div class="field">
+      <label class="field-label" for="habit-form-notes">メモ（任意）</label>
+      <textarea class="field-input" id="habit-form-notes" rows="2"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="btn-habit-form-cancel">キャンセル</button>
+      <button class="btn-ghost" id="btn-habit-form-close" style="display:none">閉じる</button>
+      <button class="btn-primary" id="btn-habit-form-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Mobile Move Sheet (スマホ専用ボトムシート) ── -->
+<div class="mobile-sheet-overlay" id="mobile-sheet-overlay" aria-hidden="true">
+  <div class="mobile-sheet" id="mobile-sheet">
+    <div class="mobile-sheet-task" id="mobile-sheet-task"></div>
+    <div class="mobile-sheet-body" id="mobile-sheet-body"></div>
+    <button class="mobile-sheet-cancel" id="mobile-sheet-cancel">キャンセル</button>
+  </div>
+</div>
+
+<!-- ── Calendar Day Modal ── -->
+<div class="modal-backdrop" id="cal-day-backdrop" aria-hidden="true">
+  <div class="modal cal-day-modal" role="dialog" aria-modal="true">
+    <h3 class="modal-title" id="cal-day-modal-date">—</h3>
+    <div class="cal-day-section">
+      <h4 class="cal-day-section-title">📅 カレンダーリスト</h4>
+      <div class="cal-day-list" id="cal-day-calendar-list"></div>
+    </div>
+    <div class="cal-day-section">
+      <h4 class="cal-day-section-title">✅ 完了したタスク</h4>
+      <div class="cal-day-list" id="cal-day-completed-list"></div>
+    </div>
+    <div class="cal-day-section">
+      <h4 class="cal-day-section-title">⚠️ 完了できなかったタスク</h4>
+      <div class="cal-day-list" id="cal-day-unfinished-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cal-day-modal-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>

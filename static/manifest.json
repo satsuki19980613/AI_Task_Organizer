@@ -1,0 +1,20 @@
+{
+  "name": "Task Organizer",
+  "short_name": "タスク",
+  "description": "AIと一緒にタスクを整理するアシスタント",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F5F0",
+  "theme_color": "#4A7FA5",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
